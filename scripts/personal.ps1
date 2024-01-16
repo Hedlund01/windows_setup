@@ -202,7 +202,7 @@ else {
 
 Enable-UAC
 Enable-MicrosoftUpdate
-# Install-WindowsUpdate -Full -AcceptEula
+Install-WindowsUpdate -Full -AcceptEula
 
 if (Test-PendingReboot) {
     Invoke-Reboot
