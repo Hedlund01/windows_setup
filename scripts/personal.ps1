@@ -72,7 +72,7 @@ function Install-ChocoPackages {
     if ($ChocoInstalls.Count -gt 0) {
         # Install $ChocoInstalls packages with Chocolatey
         try {
-            choco upgrade $ChocoInstalls -y --limitoutput
+            choco upgrade $ChocoInstalls -y
         }
         catch {
             Write-Warning "Unable to install software package with Chocolatey: $($_)"
@@ -86,24 +86,23 @@ function Install-ChocoPackages {
 
 
 
-Install-Reusable-Choco-Packages("browsers.ps1")
-Install-Reusable-Choco-Packages("communication.ps1")
-Install-Reusable-Choco-Packages("dev.ps1")
+# Install-Reusable-Choco-Packages("browsers.ps1")
+# Install-Reusable-Choco-Packages("communication.ps1")
+# Install-Reusable-Choco-Packages("dev.ps1")
 
-Write-Host -ForegroundColor:Blue "Checking if this is a desktop..."
-#Install gaming apps if this is a desktop
-if ((Get-Computerinfo).CsPCSystemType -eq "Desktop") {
-    Write-Information "This is a desktop, installing gaming apps..."
-    Install-Reusable-Choco-Packages("gaming.ps1")
-}
-
-
+# Write-Host -ForegroundColor:Blue "Checking if this is a desktop..."
+# #Install gaming apps if this is a desktop
+# if ((Get-Computerinfo).CsPCSystemType -eq "Desktop") {
+#     Write-Information "This is a desktop, installing gaming apps..."
+#     Install-Reusable-Choco-Packages("gaming.ps1")
+# }
 
 
-# PowerShell Modules to install
-# $ModulesToBeInstalled = @(
-#     'OhMyPsh'
-# )
+
+#PowerShell Modules to install
+$ModulesToBeInstalled = @(
+    'PPoShTools '
+)
 
 # Chocolatey places a bunch of crap on the desktop after installing or updating software. This flag allows
 #  you to clean that up (Note: this will move *.lnk files from the Public user profile desktop and your own 
@@ -124,44 +123,52 @@ catch {
     Write-Error "Unable to disable game bar tips or bing search: $($_)"
 }
 
+#Trust the psgallery for installs
+Write-Host -ForegroundColor 'Yellow' 'Setting PSGallery as a trusted installation source...'
+Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
 
 
 # Install/Update PowershellGet and PackageManager if needed
-# try {
-#     Import-Module PowerShellGet
-# }
-# catch {
-#     throw 'Unable to load PowerShellGet!'
-# }
+try {
+    Import-Module PowerShellGet
+}
+catch {
+    throw 'Unable to load PowerShellGet!'
+}
 
-# # Need to set Nuget as a provider before installing modules via PowerShellGet
-# $null = Install-PackageProvider NuGet -Force
+# Need to set Nuget as a provider before installing modules via PowerShellGet
+$null = Install-PackageProvider NuGet -Force
 
-# # Store a few things for later use
+# Store a few things for later use
 # $SpecialPaths = Get-SpecialPaths
-# $packages = Get-Package
+$packages = Get-Package
 
-# if (@($packages | Where-Object { $_.Name -eq 'PackageManagement' }).Count -eq 0) {
-#     Write-Host -ForegroundColor cyan "PackageManager is installed but not being maintained via the PowerShell gallery (so it will never get updated). Forcing the install of this module through the gallery to rectify this now."
-#     Install-Module PackageManagement -Force
-#     Install-Module PowerShellGet -Force
+if (@($packages | Where-Object { $_.Name -eq 'PackageManagement' }).Count -eq 0) {
+    Write-Host -ForegroundColor cyan "PackageManager is installed but not being maintained via the PowerShell gallery (so it will never get updated). Forcing the install of this module through the gallery to rectify this now."
+    Install-Module PackageManagement -Force
+    Install-Module PowerShellGet -Force
 
-#     Write-Host -ForegroundColor:Red "PowerShellGet and PackageManagement have been installed from the gallery. You need to close and rerun this script for them to work properly!"
+    Write-Host -ForegroundColor:Red "PowerShellGet and PackageManagement have been installed from the gallery. You need to close and rerun this script for them to work properly!"
     
-#     Invoke-Reboot
-# }
-# else {
-#     $InstalledModules = (Get-InstalledModule).name
-#     $ModulesToBeInstalled = $ModulesToBeInstalled | Where-Object { $InstalledModules -notcontains $_ }
-#     if ($ModulesToBeInstalled.Count -gt 0) {
-#         Write-Host -ForegroundColor:cyan "Installing modules that are not already installed via powershellget. Modules to be installed = $($ModulesToBeInstalled.Count)"
-#         Install-Module -Name $ModulesToBeInstalled -AllowClobber -AcceptLicense -ErrorAction:SilentlyContinue
-#     }
-#     else {
-#         Write-Output "No modules were found that needed to be installed."
-#     }
-# }
+    Invoke-Reboot
+}
+else {
+    $InstalledModules = (Get-InstalledModule).name
+    $ModulesToBeInstalled = $ModulesToBeInstalled | Where-Object { $InstalledModules -notcontains $_ }
+    if ($ModulesToBeInstalled.Count -gt 0) {
+        Write-Host -ForegroundColor:cyan "Installing modules that are not already installed via powershellget. Modules to be installed = $($ModulesToBeInstalled.Count)"
+        Install-Module -Name $ModulesToBeInstalled -AllowClobber -AcceptLicense -ErrorAction:SilentlyContinue
+    }
+    else {
+        Write-Output "No modules were found that needed to be installed."
+    }
+}
 
+
+
+
+# Windows config settings
+Set-WindowsExplorerOptions -EnableShowHiddenFilesFoldersDrives -EnableShowProtectedOSFiles -EnableShowFileExtensions -EnableShowFullPathInTitleBar
 
 # Clear the desktop of shortcuts, move them to a new folder on the desktop
 if ($ClearDesktopShortcuts) {
@@ -189,7 +196,7 @@ if ($ClearDesktopShortcuts) {
 if ($CreatePowershellProfile -and (-not (Test-Path $PROFILE))) {
     Write-Host -ForegroundColor:Green -Info 'Creating user powershell profile...'
     # Copy local profile to user profile
-    Copy-Item -Path .\scripts\reusable\powershell_profile.ps1 -Destination $PROFILE -Force
+    Copy-Item -Path .\files\powershell_profile.ps1 -Destination $PROFILE -Force
 
     . $PROFILE # Reload the profile
 }
@@ -201,13 +208,9 @@ else {
 
 
 Enable-UAC
-Enable-MicrosoftUpdate
-Install-WindowsUpdate -Full -AcceptEula
-
 if (Test-PendingReboot) {
     Invoke-Reboot
 }
 
-Write-Host -BackgroundColor:Red -ForegroundColor:White "Don't forget to configure Windows Terminal, it needs a nerd font to display icons!"
 
 Write-Host -ForegroundColor:Green "Install and configuration complete!"
